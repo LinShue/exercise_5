@@ -112,7 +112,6 @@ def signup():
     
     if request.method == 'POST':
         u = new_user()
-        print("u")
         print(u)
         for key in u.keys():
             print(f'{key}: {u[key]}')
@@ -130,7 +129,6 @@ def profile():
     user = get_user_from_cookie(request)
     if user:
         return render_with_error_handling('profile.html', user=user)
-    
     redirect('/login')
 
 
@@ -143,13 +141,13 @@ def login():
         return redirect('/')
     
     if request.method == 'POST':
-        name = request.form['name']
-        password = request.form['name']
+        name = request.form['username']
+        password = request.form['password']
         u = query_db('select * from users where name = ? and password = ?', [name, password], one=True)
-        if user:
+        if u:
             resp = make_response(redirect("/"))
-            resp.set_cookie('user_id', u.id)
-            resp.set_cookie('user_password', u.password)
+            resp.set_cookie('user_id', str(u['id']))
+            resp.set_cookie('user_password', u['password'])
             return resp
 
     return render_with_error_handling('login.html', failed=True)   
@@ -165,7 +163,6 @@ def logout():
 def room(room_id):
     user = get_user_from_cookie(request)
     if user is None: return redirect('/')
-
     room = query_db('select * from rooms where id = ?', [room_id], one=True)
     return render_with_error_handling('room.html',
             room=room, user=user)
@@ -173,14 +170,65 @@ def room(room_id):
 # -------------------------------- API ROUTES ----------------------------------
 
 # POST to change the user's name
-@app.route('/api/user/name')
+@app.route('/api/user/name', methods=['POST'])
 def update_username():
-    return {}, 403
+    api_key = request.headers.get('X-API-Key')
+    user = query_db('select * from users where api_key = ?', [api_key], one=True)
+    if not user:
+        return jsonify({"error": "Invalid or missing API key"}), 403
+    # print("request data: ", request.json)
+    new_name = request.json.get('name')
+    # print('new_name:', new_name)
+    if not new_name:
+        return jsonify({"error": "New name is required"}), 400
+    # print("api_key: ", api_key)
+    query_db('update users set name = ? where id = ?', [new_name, user['id']])
+    return jsonify({"message": "Username updated successfully"}), 200
 
 # POST to change the user's password
+@app.route('/api/user/password', methods=['POST'])
+def update_password():
+    api_key = request.headers.get('X-API-Key')
+    user = query_db('select * from users where api_key = ?', [api_key], one=True)
+    if not user:
+        return jsonify({"error": "Invalid or missing API key"}), 403
+    # print("request data: ", request.json)
+    new_password = request.json.get('password')
+    query_db('update users set password = ? where id = ?', [new_password, user['id']])
+    return jsonify({"message": "Password updated successfully"}), 200
 
 # POST to change the name of a room
+@app.route('/api/rooms/<int:room_id>/name', methods=['POST'])
+def update_room_name(room_id):
+    api_key = request.headers.get('X-API-Key')
+    user = query_db('select * from users where api_key = ?', [api_key], one=True)
+    if not user:
+        return jsonify({"error": "Invalid or missing API key"}), 403
+    # print("Request: ", request.json)
+    new_name = request.json.get('name')
+    # print("new_name",new_name)
+    # print("room_id", room_id)
+    query_db('update rooms set name = ? where id = ?', [new_name, room_id])
+    return jsonify({"message": "Room name updated successfully"}), 200
 
 # GET to get all the messages in a room
+@app.route('/api/rooms/<int:room_id>/messages', methods=['GET'])
+def get_messages(room_id):
+    api_key = request.headers.get('X-API-Key')
+    if not api_key or not query_db('select * from users where api_key = ?', [api_key], one=True):
+        return jsonify({"error": "Invalid or missing API key"}), 403
+    
+    messages = query_db('select m.*, u.name as user_name from messages m join users u on m.user_id = u.id where m.room_id = ?', [room_id])
+    return jsonify([{"id": msg["id"], "user_name": msg["user_name"], "body": msg["body"]} for msg in messages])
 
 # POST to post a new message to a room
+@app.route('/api/rooms/<int:room_id>/messages', methods=['POST'])
+def post_message(room_id):
+    api_key = request.headers.get('X-API-Key')
+    user = query_db('select * from users where api_key = ?', [api_key], one=True)
+    if not user:
+        return jsonify({"error": "Invalid or missing API key"}), 403
+    body = request.json.get('body')
+    query_db('insert into messages (user_id, room_id, body) values (?, ?, ?)', [user['id'], room_id, body])
+    return jsonify({"message": "Message posted successfully"}), 201
+

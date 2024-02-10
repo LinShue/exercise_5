@@ -10,6 +10,7 @@
     WATCH_PARTY_USER_ID = {{ user.id }};
     WATCH_PARTY_API_KEY = '{{ user.api_key }}';
     {% endif %}
+    WATCH_PARTY_ROOM_ID = {{ room['id'] }};
   </script>
   <script src="/static/script.js"></script>
 </head>
@@ -25,16 +26,16 @@
       <!-- TODO: when clicked, 
         - remove `hide` from the `edit` h3 below
         - add `hide` to the parent h3 here -->
-      <a href="#"><span class="material-symbols-outlined">edit</span></a></h3>
+      <a href="#" id="editLink"><span class="material-symbols-outlined">edit</span></a></h3>
     </h3>
     <h3 class="edit hide">
-      <input value="{{ room['name'] }}">
+      <input id="roomNameInput" value="{{ room['name'] }}">
       <!-- TODO: when clicked,
         - POST to update the room name
         - update `roomName` above with the new name
         - remove `hide` from the `display` h3 above
         - add `hide` to the parent h3 here -->
-      <a href="#"><span class="material-symbols-outlined">save</span></a></h3>
+      <a href="#" id="saveLink"><span class="material-symbols-outlined">save</span></a></h3>
     </h3>
     <div class="invite">
       Invite users to this chat at:
@@ -49,10 +50,10 @@
   {% if room %}
   <div class="chat">
     <div class="comment_box">
-      <form>
+      <form id="comment_form">
         <label for="comment">What do you have to say?</label>
-        <textarea name="comment"></textarea>
-        <button type="submit" value="Post">Post</button>
+        <textarea id="comment_text" name="comment"></textarea>
+        <button id="postMsg" type="submit" value="Post">Post</button>
       </form>
     </div>
     <div class="messages">
